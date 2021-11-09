@@ -1,52 +1,51 @@
-import { Injectable, HttpException, HttpService } from '@nestjs/common';
-import { response } from 'express';
-import { resolve } from 'path/posix';
-import { CARS } from './cars.mock';
-import { map } from 'rxjs';
+import { Injectable, HttpException, } from '@nestjs/common';
 
+
+import { Model } from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
+import { Icar } from './interfaces/car.interface';
+import { car_dto } from './car.dto';
 @Injectable()
 export class CarService {
-    private cars = CARS;
-    public async getCars() {
-        return this.cars;
-    }
+    
+    constructor(@InjectModel('Car') private readonly carModel: Model<Icar>) {}
 
-
-    public getCarByID(id: number): Promise<any>{
-        const carID = Number(id)
-        return new Promise((resolve) => {
-            const car = this.cars.find((item) => item.id === carID);
-            if(!car) {
-                throw new HttpException('Not found', 404);
-            }
-            return resolve(car)
-        });
-    }
-
-
-    public deleteCarByID(id: number) {
-        const index = this.cars.findIndex((item) => item.id === id);
-        if(index === -1) {
-            throw new HttpException('Not found', 404);
+    public async getCars(): Promise<car_dto[]> {
+        const cars = await this.carModel.find().exec();
+        if(!cars || !cars[0]) {
+            throw new HttpException('Not Found', 404);
         }
-        this.cars.splice(index, 1)
-        return this.cars;
+        return cars
     }
 
+    public async postCar(newCar: car_dto) {     // create
+        const car = await new this.carModel(newCar);
+        return car.save(); 
+    }
 
-    public putCarByID(id: number, propertyName: string, propertyValue: string) {   // update
-        const carID = Number(id)
-        const index = this.cars.findIndex((car) => car.id === carID);
-        if(index === -1) {
-            throw new HttpException('Not found', 404);
+    public async getCarByID(id: number): Promise<car_dto>{
+        const car = await this.carModel.findOne({ id }).exec();
+        if(!car) {
+            throw new HttpException('Not Found', 404);
         }
-        this.cars[index][propertyName] = propertyValue;
-        return this.cars;
+        return car;
     }
 
 
-    public postCar(car) {     // create
-        this.cars.push(car)
-        return this.cars;
+    public async deleteCarByID(id: number) {
+        const car = await this.carModel.deleteOne({ id }).exec();
+        if(car.deletedCount === 0) {
+            throw new HttpException("Delete Failed", 404);
+        }
+        return car;
+    }
+
+
+    public async putCarByID(id: number, propertyName: string, propertyValue: string): Promise<car_dto> {   // update
+        const car = await this.carModel.findOneAndUpdate({ id }, {[propertyName]: propertyValue}).exec();
+        if(!car) {
+            throw new HttpException("Update failed", 404);
+        }
+        return car;
     }
 }
