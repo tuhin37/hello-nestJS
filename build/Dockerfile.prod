@@ -1,0 +1,16 @@
+# -------------- staging ----------------
+FROM node:slim AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install -g @nestjs/cli 
+RUN npm install --production --silent 
+COPY . .
+RUN npm run build 
+RUN rm -r test/ src/
+
+# ----------------- prod ---------------------
+FROM gcr.io/distroless/nodejs:10
+COPY --from=builder /app /app
+WORKDIR /app
+EXPOSE 7000
+CMD ["dist/main"]
